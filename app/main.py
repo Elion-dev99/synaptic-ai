@@ -107,6 +107,7 @@ def chat(body: ChatIn):
         mem.learn({t: 1.0 for t in tokens}, reward=0.6)
     rec = log.add(tokens, "chat", text, 0.6)
     persist()
+    maybe_auto_consolidate()
 
     if recalled:
         names = "、".join(n for n, _ in recalled[:5])
@@ -162,18 +163,83 @@ def metrics():
     s = mem.stats()
     s["experience_count"] = len(log.recent(100000))
     s["guard_pending"] = sum(1 for g in guard_queue if g["status"] == "pending")
+    st = load_settings()
+    s["auto_learn"] = st["auto_enabled"]
+    s["auto_runs"] = st["runs"]
+    s["last_auto_at"] = st["last_at"]
     return s
 
 
-@app.post("/api/consolidate")
-def consolidate(x_admin_token: str = Header(default="")):
-    """睡眠: 忘却・剪定を実行し、自動スナップショットを取る。"""
-    require_admin(x_admin_token)
+# ---------------- 自動学習 ----------------
+SETTINGS_PATH = DATA / "settings.json"
+DEFAULT_SETTINGS = {"auto_enabled": True, "last_seq": 0, "last_at": 0.0, "runs": 0}
+
+
+def load_settings() -> dict:
+    if SETTINGS_PATH.exists():
+        s = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        return {**DEFAULT_SETTINGS, **s}
+    return dict(DEFAULT_SETTINGS)
+
+
+def save_settings(s: dict) -> None:
+    SETTINGS_PATH.write_text(json.dumps(s, ensure_ascii=False), encoding="utf-8")
+
+
+def consolidate_memory(is_auto: bool) -> dict:
+    """経験リプレイ（報酬が正のチャットを弱く再学習）→ 忘却・剪定 → 自動スナップショット。"""
+    for rec in reversed(log.recent(200)):
+        if rec["action"] != "chat" or not (rec["reward"] > 0):
+            continue
+        toks = [x for x in rec["in"] if isinstance(x, str)]
+        if len(toks) > 1:
+            mem.learn({x: 1.0 for x in toks}, reward=0.15 * rec["reward"])
     pruned = mem.decay_all()
     persist()
     name = time.strftime("auto-%Y%m%d-%H%M%S")
     mem.save(SNAP_DIR / f"{name}.json")
-    return {"ok": True, "pruned_edges": pruned, "snapshot": name, "stats": mem.stats()}
+    s = load_settings()
+    if is_auto:
+        s["runs"] += 1
+    s["last_at"] = time.time()
+    s["last_seq"] = len(log.recent(1000000))
+    save_settings(s)
+    log.add([], "auto_consolidate" if is_auto else "consolidate", f"replay+decay pruned={pruned}", 0)
+    return {"pruned_edges": pruned, "snapshot": name}
+
+
+def maybe_auto_consolidate() -> None:
+    s = load_settings()
+    if s["auto_enabled"] and len(log.recent(1000000)) - s["last_seq"] >= 30:
+        consolidate_memory(is_auto=True)
+
+
+@app.post("/api/consolidate")
+def consolidate(x_admin_token: str = Header(default="")):
+    """睡眠: 経験リプレイ＋忘却・剪定を実行し、自動スナップショットを取る。"""
+    require_admin(x_admin_token)
+    r = consolidate_memory(is_auto=False)
+    return {"ok": True, **r, "stats": mem.stats()}
+
+
+class SettingsIn(BaseModel):
+    auto_learn: bool
+
+
+@app.get("/api/settings")
+def get_settings():
+    s = load_settings()
+    return {"auto_learn": s["auto_enabled"], "auto_runs": s["runs"], "last_auto_at": s["last_at"]}
+
+
+@app.post("/api/settings")
+def post_settings(body: SettingsIn, x_admin_token: str = Header(default="")):
+    require_admin(x_admin_token)
+    s = load_settings()
+    s["auto_enabled"] = body.auto_learn
+    save_settings(s)
+    log.add([], "settings", f"auto_learn={body.auto_learn}", 0)
+    return {"ok": True, "auto_learn": body.auto_learn}
 
 
 class SnapshotIn(BaseModel):

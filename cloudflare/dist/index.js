@@ -84,9 +84,12 @@ const HTML = `<!DOCTYPE html>
 
   <section id="tab-graph">
     <div class="card">
-      <h2>記憶グラフ</h2>
+      <h2>記憶グラフ（立体）</h2>
       <canvas id="graphCanvas" width="800" height="420"></canvas>
-      <div style="margin-top:10px"><button class="btn" onclick="loadGraph()">再読み込み</button></div>
+      <div class="rowflex" style="margin-top:10px;justify-content:space-between">
+        <span class="muted">ドラッグで回転</span>
+        <button class="btn" onclick="loadGraph()">再読み込み</button>
+      </div>
     </div>
   </section>
 
@@ -102,6 +105,14 @@ const HTML = `<!DOCTYPE html>
     <div class="card">
       <h2>状態</h2>
       <div class="grid" id="statGrid"></div>
+    </div>
+    <div class="card">
+      <h2>自動学習</h2>
+      <div class="rowflex" style="justify-content:space-between">
+        <span id="autoState">…</span>
+        <button class="btn" onclick="toggleAuto()">切り替え</button>
+      </div>
+      <div id="autoDetail" class="muted" style="margin-top:6px"></div>
     </div>
     <div class="card">
       <h2>承認キュー</h2>
@@ -155,6 +166,7 @@ function switchTab(name){
   document.querySelectorAll('#tabbar button').forEach(x => x.classList.toggle('on', x.dataset.tab === name));
   document.querySelectorAll('main section').forEach(s => s.classList.toggle('on', s.id === 'tab-' + name));
   $('#composer').style.display = name === 'chat' ? 'block' : 'none';
+  if (name !== 'graph' && gAnim) { cancelAnimationFrame(gAnim); gAnim = null; }
   if (name === 'home') loadHome();
   if (name === 'graph') loadGraph();
   if (name === 'log') loadLog();
@@ -219,26 +231,76 @@ async function refreshMetrics(){
   return m;
 }
 
+// ---- 記憶グラフ（立体）: 3D配置→回転→透視投影で描く ----
+let g3d = null, gAnim = null;
+function hash3(s){ let h = 2166136261; for (const c of s){ h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; }
 async function loadGraph(){
   const g = await (await fetch('/api/memory/graph')).json();
-  const cv = $('#graphCanvas'), ctx = cv.getContext('2d');
-  cv.width = cv.clientWidth; cv.height = cv.clientHeight;
-  const W = cv.width, H = cv.height;
-  const pos = {};
-  g.nodes.forEach((n,i)=>{ const a = i / Math.max(1,g.nodes.length) * Math.PI*2;
-    pos[n.id] = {x: W/2 + Math.cos(a)*(W*0.36), y: H/2 + Math.sin(a)*(H*0.36)}; });
-  ctx.clearRect(0,0,W,H);
-  ctx.strokeStyle = '#9ca3af';
-  g.links.forEach(l => { const a=pos[l.source], b=pos[l.target]; if(!a||!b) return;
-    ctx.lineWidth = Math.max(0.5, Math.abs(l.w)*4); ctx.globalAlpha = 0.25 + Math.abs(l.w)*0.6;
-    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); });
-  ctx.globalAlpha = 1; ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--ink');
-  ctx.font = '12px sans-serif'; ctx.textAlign='center';
-  g.nodes.forEach(n => { const p = pos[n.id];
-    ctx.beginPath(); ctx.arc(p.x,p.y,3.5,0,Math.PI*2); ctx.fill();
-    ctx.fillText(n.id, p.x, p.y - 8); });
-  if(!g.nodes.length) { ctx.font='14px sans-serif'; ctx.fillText('まだ記憶がありません', W/2, H/2); }
+  const cv = $('#graphCanvas');
+  if (!g.nodes.length){
+    const ctx = cv.getContext('2d'); cv.width = cv.clientWidth; cv.height = cv.clientHeight;
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--muted');
+    ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('まだ記憶がありません', cv.width/2, cv.height/2); g3d = null; return;
+  }
+  const deg = {}; g.links.forEach(l => { deg[l.source] = (deg[l.source]||0)+1; deg[l.target] = (deg[l.target]||0)+1; });
+  const nodes = g.nodes.map(n => {
+    const t = hash3(n.id) * Math.PI * 2, ph = Math.acos(2 * hash3(n.id + '#') - 1);
+    return { id: n.id, act: n.activation || 0, deg: deg[n.id] || 0,
+             x: Math.sin(ph) * Math.cos(t), y: Math.cos(ph), z: Math.sin(ph) * Math.sin(t) };
+  });
+  const idx = {}; nodes.forEach(n => idx[n.id] = n);
+  g3d = { nodes, links: g.links.filter(l => idx[l.source] && idx[l.target]).map(l => ({ a: idx[l.source], b: idx[l.target], w: typeof l.w === 'number' ? l.w : 0.3 })),
+          ax: 0.5, ay: 0, drag: false, px: 0, py: 0 };
+  if (gAnim) cancelAnimationFrame(gAnim);
+  drawGraph();
 }
+function drawGraph(){
+  if (!g3d) return;
+  const cv = $('#graphCanvas'), ctx = cv.getContext('2d');
+  if (cv.width !== cv.clientWidth){ cv.width = cv.clientWidth; cv.height = cv.clientHeight; }
+  if (!g3d.drag) g3d.ay += 0.005;
+  const cx = cv.width/2, cy = cv.height/2, S = Math.min(cx, cy) * 1.02, F = 3.2;
+  const ca = Math.cos(g3d.ax), sa = Math.sin(g3d.ax), cb = Math.cos(g3d.ay), sb = Math.sin(g3d.ay);
+  const proj = g3d.nodes.map(n => {
+    const x1 = n.x * cb + n.z * sb, z1 = -n.x * sb + n.z * cb;
+    const y2 = n.y * ca - z1 * sa, z2 = n.y * sa + z1 * ca;
+    const sc = F / (F + z2 + 1.6);
+    return { n, X: cx + x1 * S * sc, Y: cy + y2 * S * sc, Z: z2, sc };
+  });
+  const P = {}; proj.forEach(p => P[p.n.id] = p);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  g3d.links.map(l => ({ a: P[l.a.id], b: P[l.b.id], w: l.w })).sort((u,v) => (v.a.Z + v.b.Z) - (u.a.Z + u.b.Z)).forEach(l => {
+    const depth = Math.max(0.15, 1 - (l.a.Z + l.b.Z + 2) / 5);
+    const alpha = Math.max(0.05, Math.min(0.9, Math.abs(l.w) * 2.4) * (0.25 + 0.75 * depth));
+    ctx.strokeStyle = 'rgba(108,140,255,' + alpha.toFixed(3) + ')';
+    ctx.lineWidth = Math.max(0.5, (0.6 + Math.abs(l.w) * 1.8) * ((l.a.sc + l.b.sc) / 2));
+    ctx.beginPath(); ctx.moveTo(l.a.X, l.a.Y); ctx.lineTo(l.b.X, l.b.Y); ctx.stroke();
+  });
+  proj.sort((u,v) => v.Z - u.Z).forEach(p => {
+    const r = (3.5 + Math.min(8, p.n.deg * 1.6 + p.n.act * 0.4)) * p.sc;
+    ctx.fillStyle = p.Z < 0 ? '#8fb0ff' : '#4d68b8';
+    ctx.beginPath(); ctx.arc(p.X, p.Y, r, 0, Math.PI * 2); ctx.fill();
+    if (p.sc > 0.7){
+      ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--ink'); ctx.globalAlpha = p.Z < 0 ? 1 : 0.55;
+      ctx.font = Math.max(9, Math.round(12 * p.sc)) + 'px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(p.n.id, p.X, p.Y - r - 4); ctx.globalAlpha = 1;
+    }
+  });
+  gAnim = requestAnimationFrame(drawGraph);
+}
+(function(){
+  const cv = $('#graphCanvas');
+  const start = (x,y) => { if (g3d){ g3d.drag = true; g3d.px = x; g3d.py = y; } };
+  const move = (x,y) => { if (g3d && g3d.drag){ g3d.ay += (x - g3d.px) * 0.008; g3d.ax = Math.max(-1.4, Math.min(1.4, g3d.ax + (y - g3d.py) * 0.008)); g3d.px = x; g3d.py = y; } };
+  cv.addEventListener('pointerdown', e => start(e.clientX, e.clientY));
+  cv.addEventListener('pointermove', e => move(e.clientX, e.clientY));
+  addEventListener('pointerup', () => { if (g3d) g3d.drag = false; });
+  cv.addEventListener('touchstart', e => start(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+  cv.addEventListener('touchmove', e => move(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+  cv.addEventListener('touchend', () => { if (g3d) g3d.drag = false; });
+})();
 
 async function loadLog(){
   const rows = await (await fetch('/api/experience?limit=50')).json();
@@ -246,8 +308,22 @@ async function loadLog(){
     rows.map(r => '<tr><td>'+r.id+'</td><td>'+new Date(r.t*1000).toLocaleTimeString('ja-JP')+'</td><td>'+r.action+'</td><td>'+String(r.result).slice(0,60)+'</td><td>'+r.reward+'</td></tr>').join('') + '</table>';
 }
 
+let autoLearn = null;
+async function loadSettings(){
+  try {
+    const s = await (await fetch('/api/settings')).json();
+    autoLearn = s.auto_learn;
+    $('#autoState').textContent = s.auto_learn ? 'ON' : 'OFF';
+    $('#autoDetail').textContent = '実行回数: ' + s.auto_runs + (s.last_auto_at ? ' ／ 最終: ' + new Date(s.last_auto_at * 1000).toLocaleString('ja-JP') : '');
+  } catch(e){}
+}
+async function toggleAuto(){
+  const r = await fetch('/api/settings', { method:'POST', headers: adminHeaders(), body: JSON.stringify({ auto_learn: !autoLearn }) });
+  if (r.ok) loadSettings(); else alert('変更できませんでした');
+}
 async function loadAdmin(){
   const m = await refreshMetrics();
+  loadSettings();
   $('#statGrid').innerHTML = statCards(m);
   const q = await (await fetch('/api/guard')).json();
   $('#guardList').innerHTML = q.length ? q.map(g =>
@@ -343,9 +419,11 @@ class MemoryStore {
 }
 
 // 後から外部ストレージを接続する場合は、ここに分岐を足す。
+let _memStore = null;
 function createStore(env) {
   if (env.DB) return new D1Store(env.DB);
-  return new MemoryStore();
+  if (!_memStore) _memStore = new MemoryStore();
+  return _memStore;
 }
 
 /* ================= シナプスコア（JS移植） ================= */
@@ -400,6 +478,23 @@ function decayAll(edges) {
   return pruned;
 }
 
+// 自動学習の中核: 経験リプレイ（報酬が正のチャットを弱く再学習）→ 忘却・剪定 → 自動スナップショット
+async function consolidateBrain(store, brain, isAuto) {
+  for (const rec of brain.log.slice(-200)) {
+    if (rec.action !== "chat" || !(rec.reward > 0)) continue;
+    const toks = (rec.in || []).filter((s) => typeof s === "string");
+    if (toks.length > 1) learn(brain.edges, Object.fromEntries(toks.map((x) => [x, 1.0])), 0.15 * rec.reward);
+  }
+  const pruned = decayAll(brain.edges);
+  const name = "auto-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  await store.saveSnapshot(name, brain.edges);
+  if (isAuto) brain.auto.runs += 1;
+  brain.auto.lastAt = Date.now() / 1000;
+  brain.auto.lastSeq = brain.expSeq;
+  addLog(brain, [], isAuto ? "auto_consolidate" : "consolidate", `replay+decay pruned=${pruned}`, 0);
+  return { pruned, snapshot: name };
+}
+
 function stats(edges) {
   const nodes = new Set(Object.keys(edges));
   let count = 0, sum = 0;
@@ -442,7 +537,7 @@ function tokenize(text) {
 const IRREVERSIBLE = ["送信して", "送って", "削除して", "消して", "公開して", "買って", "支払って", "投稿して"];
 
 /* ================= 本体 ================= */
-const defaultBrain = () => ({ edges: {}, log: [], guard: [], guardSeq: 0, expSeq: 0 });
+const defaultBrain = () => ({ edges: {}, log: [], guard: [], guardSeq: 0, expSeq: 0, auto: { enabled: true, lastAt: 0, lastSeq: 0, runs: 0 } });
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8" } });
@@ -478,6 +573,7 @@ const __worker = {
     if (!path.startsWith("/api/")) return new Response("not found", { status: 404 });
 
     const brain = (await store.loadBrain()) || defaultBrain();
+    if (!brain.auto) brain.auto = { enabled: true, lastAt: 0, lastSeq: 0, runs: 0 };
 
     // --- チャット（連絡手段） ---
     if (path === "/api/chat" && request.method === "POST") {
@@ -503,6 +599,7 @@ const __worker = {
       const recalled = Object.entries(activated).filter(([n]) => !(n in seeds)).sort((a, b) => b[1] - a[1]);
       if (tokens.length) learn(brain.edges, seeds, 0.6);
       const rec = addLog(brain, tokens, "chat", text, 0.6);
+      if (brain.auto.enabled && brain.expSeq - brain.auto.lastSeq >= 30) await consolidateBrain(store, brain, true);
       await store.saveBrain(brain);
 
       let reply;
@@ -531,15 +628,24 @@ const __worker = {
       return json(brain.log.slice(-limit).reverse());
     }
     if (path === "/api/metrics") {
-      return json({ ...stats(brain.edges), experience_count: brain.expSeq, guard_pending: brain.guard.filter((g) => g.status === "pending").length });
+      return json({ ...stats(brain.edges), experience_count: brain.expSeq, guard_pending: brain.guard.filter((g) => g.status === "pending").length, auto_learn: brain.auto.enabled, auto_runs: brain.auto.runs, last_auto_at: brain.auto.lastAt });
     }
     if (path === "/api/consolidate" && request.method === "POST") {
       const ng = requireAdmin(request, env); if (ng) return ng;
-      const pruned = decayAll(brain.edges);
-      const name = "auto-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-      await store.saveSnapshot(name, brain.edges);
+      const { pruned, snapshot } = await consolidateBrain(store, brain, false);
       await store.saveBrain(brain);
-      return json({ ok: true, pruned_edges: pruned, snapshot: name, stats: stats(brain.edges) });
+      return json({ ok: true, pruned_edges: pruned, snapshot, stats: stats(brain.edges) });
+    }
+    if (path === "/api/settings" && request.method === "GET") {
+      return json({ auto_learn: brain.auto.enabled, auto_runs: brain.auto.runs, last_auto_at: brain.auto.lastAt });
+    }
+    if (path === "/api/settings" && request.method === "POST") {
+      const ng = requireAdmin(request, env); if (ng) return ng;
+      const { auto_learn } = await request.json();
+      brain.auto.enabled = !!auto_learn;
+      addLog(brain, [], "settings", `auto_learn=${brain.auto.enabled}`, 0);
+      await store.saveBrain(brain);
+      return json({ ok: true, auto_learn: brain.auto.enabled });
     }
     if (path === "/api/snapshots" && request.method === "GET") return json(await store.listSnapshots());
     if (path === "/api/snapshot" && request.method === "POST") {
@@ -572,6 +678,16 @@ const __worker = {
     }
 
     return json({ detail: "not found" }, 404);
+  },
+
+  // Cron 起動: 自動学習が ON なら定期的にリプレイ＋定着を実行する
+  async scheduled(event, env, ctx) {
+    const store = createStore(env);
+    const brain = (await store.loadBrain()) || defaultBrain();
+    if (!brain.auto) brain.auto = { enabled: true, lastAt: 0, lastSeq: 0, runs: 0 };
+    if (!brain.auto.enabled) return;
+    await consolidateBrain(store, brain, true);
+    await store.saveBrain(brain);
   },
 };
 
