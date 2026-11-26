@@ -1,4 +1,3 @@
-// Web app UI (admin console + chat). Same content as app/static/index.html.
 const HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -45,7 +44,11 @@ const HTML = `<!DOCTYPE html>
   #tabbar button{ flex:1; border:0; background:none; color:var(--muted); font-size:11px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; padding:6px 0; -webkit-tap-highlight-color:transparent; }
   #tabbar button .ic{ font-size:19px; line-height:1; }
   #tabbar button.on{ color:var(--ink); font-weight:700; }
-  .livedot{ width:8px; height:8px; border-radius:50%; background:#34c759; display:inline-block; animation:pulse 1.6s infinite; }
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+.chip i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.livedot{ width:8px; height:8px; border-radius:50%; background:#34c759; display:inline-block; animation:pulse 1.6s infinite; }
   @keyframes pulse{ 0%{ opacity:1; } 50%{ opacity:.25; } 100%{ opacity:1; } }
   .snaprow{ display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding:7px 0; }
 </style>
@@ -75,6 +78,7 @@ const HTML = `<!DOCTYPE html>
     <div class="card">
       <h2>Synapse Structure <span class="livedot" title="Live"></span><span class="muted" style="font-weight:400">Live</span></h2>
       <canvas id="graphCanvas" width="800" height="520"></canvas>
+      <div class="chips" id="fieldChips"></div>
       <div class="rowflex" style="margin-top:10px;justify-content:space-between">
         <span class="muted">Drag to rotate</span>
         <button class="btn" onclick="loadGraph()">Reload</button>
@@ -259,12 +263,52 @@ function makeSprite(stops){
 }
 var SPR_FRONT = makeSprite([[0, "#ffffff"], [0.25, "#b9d2ff"], [0.62, "#6c8cff"], [1, "#2c4cc0"]]);
 var SPR_BACK = makeSprite([[0, "#8fa5d8"], [0.3, "#54679f"], [0.7, "#31477e"], [1, "#1d2c52"]]);
+var FIELD_META = {
+  science:   { name: "Science",        c: ["#b9d2ff", "#6c8cff", "#2c4cc0"] },
+  animals:   { name: "Animals",        c: ["#b5ecd2", "#43b581", "#1f7a4d"] },
+  food:      { name: "Food",           c: ["#ffdca8", "#f5a13d", "#b06f14"] },
+  body:      { name: "Body & Health",  c: ["#ffc2da", "#ef6aa5", "#a83a68"] },
+  emotion:   { name: "Emotions",       c: ["#dcc8ff", "#a678ff", "#6b3fc4"] },
+  society:   { name: "Society & Money", c: ["#f7e39a", "#e8c33c", "#9a7b12"] },
+  tech:      { name: "Technology",     c: ["#a9ecf5", "#38c6d9", "#177e8f"] },
+  transport: { name: "Transport",      c: ["#ccd6e4", "#8d9db6", "#4d5c73"] },
+  geography: { name: "Geography",      c: ["#cdeec7", "#7bc96f", "#3d7a34"] },
+  time:      { name: "Time & Seasons", c: ["#ffc9d8", "#f27d9d", "#a83a58"] },
+  life:      { name: "Daily Life",     c: ["#e6d3c0", "#b08968", "#6f4f33"] },
+  culture:   { name: "Culture",        c: ["#efc2f5", "#c95dd6", "#83348f"] },
+  abstract:  { name: "Concepts",       c: ["#eef1f6", "#b9c0cc", "#5d6675"] },
+  self:      { name: "Self & Learning", c: ["#ffc4b0", "#ff7a59", "#b03f1f"] },
+  general:   { name: "General",        c: ["#c3ccd9", "#7f8ca3", "#4a5468"] }
+};
+var SPRF = {}, SPRB = {};
+Object.keys(FIELD_META).forEach(function(k){
+  var c = FIELD_META[k].c;
+  SPRF[k] = makeSprite([[0, "#ffffff"], [0.25, c[0]], [0.62, c[1]], [1, c[2]]]);
+  SPRB[k] = makeSprite([[0, c[1]], [0.35, c[2]], [1, c[2]]]);
+});
+var gFilter = null;
+function fieldPass(n){ return !gFilter || n.field === gFilter || !n.field; }
+function renderFieldChips(g){
+  var box = document.getElementById("fieldChips");
+  if (!box) return;
+  var counts = {};
+  g.nodes.forEach(function(n){ if (n.field) counts[n.field] = (counts[n.field] || 0) + 1; });
+  var keys = Object.keys(counts).sort(function(a, b){ return counts[b] - counts[a]; });
+  if (!keys.length) { box.innerHTML = ""; return; }
+  var html = '<button class="chip' + (gFilter ? "" : " on") + '" onclick="setFieldFilter(null)">All</button>';
+  keys.forEach(function(k){
+    var m = FIELD_META[k] || { name: k, c: ["#ccc", "#999", "#666"] };
+    html += '<button class="chip' + (gFilter === k ? " on" : "") + '" onclick="setFieldFilter(' + "'" + k + "'" + ')"><i style="background:' + m.c[1] + '"></i>' + m.name + " " + counts[k] + "</button>";
+  });
+  box.innerHTML = html;
+}
+function setFieldFilter(k){ gFilter = k; if (window._lastGraph) renderFieldChips(window._lastGraph); }
 function buildNodes(g){
   var deg = {};
   g.links.forEach(function(l){ deg[l.source] = (deg[l.source] || 0) + 1; deg[l.target] = (deg[l.target] || 0) + 1; });
   return g.nodes.map(function(n){
     var p = nodePos(n.id);
-    return { id: n.id, act: n.activation || 0, deg: deg[n.id] || 0, x: p.x, y: p.y, z: p.z };
+    return { id: n.id, field: n.field || null, act: n.activation || 0, deg: deg[n.id] || 0, x: p.x, y: p.y, z: p.z };
   });
 }
 function linkRefs(nodes, links){
@@ -282,6 +326,7 @@ async function loadGraph(){
     f.ctx.fillText("No memories yet", f.W / 2, f.H / 2);
     g3d = null; return;
   }
+  window._lastGraph = g; renderFieldChips(g);
   var nodes = buildNodes(g);
   g3d = { nodes: nodes, links: linkRefs(nodes, g.links), ax: 0.5, ay: 0, drag: false, px: 0, py: 0 };
   if (gAnim) cancelAnimationFrame(gAnim);
@@ -290,6 +335,7 @@ async function loadGraph(){
 async function mergeGraph(){
   try {
     var g = await (await fetch("/api/memory/graph")).json();
+    window._lastGraph = g; renderFieldChips(g);
     refreshMetrics();
     if (!g.nodes.length || !g3d) { if (g.nodes.length) loadGraph(); return; }
     var deg = {};
@@ -299,8 +345,8 @@ async function mergeGraph(){
     g3d.nodes = g3d.nodes.filter(function(n){ return keep[n.id]; });
     var have = {}; g3d.nodes.forEach(function(n){ have[n.id] = n; });
     g.nodes.forEach(function(n){
-      if (have[n.id]) { have[n.id].deg = deg[n.id] || 0; have[n.id].act = n.activation || 0; }
-      else { var p = nodePos(n.id); g3d.nodes.push({ id: n.id, act: n.activation || 0, deg: deg[n.id] || 0, x: p.x, y: p.y, z: p.z }); }
+      if (have[n.id]) { have[n.id].deg = deg[n.id] || 0; have[n.id].act = n.activation || 0; have[n.id].field = n.field || null; }
+      else { var p = nodePos(n.id); g3d.nodes.push({ id: n.id, field: n.field || null, act: n.activation || 0, deg: deg[n.id] || 0, x: p.x, y: p.y, z: p.z }); }
     });
     g3d.links = linkRefs(g3d.nodes, g.links);
   } catch(e){}
@@ -332,6 +378,7 @@ function drawGraph(){
     .sort(function(u, v){ return (v.a.Z + v.b.Z) - (u.a.Z + u.b.Z); });
   ctx.lineCap = "round";
   links.forEach(function(l){
+    if (gFilter && !(fieldPass(l.a.n) && fieldPass(l.b.n) && (l.a.n.field === gFilter || l.b.n.field === gFilter))) return;
     var depth = Math.max(0.12, 1 - (l.a.Z + l.b.Z + 2) / 5);
     var alpha = Math.max(0.04, Math.min(0.85, Math.abs(l.w) * 2.6) * (0.2 + 0.8 * depth));
     ctx.strokeStyle = "rgba(108,140,255," + alpha.toFixed(3) + ")";
@@ -340,14 +387,17 @@ function drawGraph(){
   });
   proj.sort(function(u, v){ return v.Z - u.Z; }).forEach(function(p){
     var r = (4 + Math.min(9, p.n.deg * 1.7 + p.n.act * 0.4)) * p.sc;
-    ctx.globalAlpha = Math.max(0.35, Math.min(1, 1.15 - (p.Z + 1) * 0.32));
-    var spr = p.Z < 0 ? SPR_FRONT : SPR_BACK;
+    var a = Math.max(0.35, Math.min(1, 1.15 - (p.Z + 1) * 0.32));
+    if (gFilter && !fieldPass(p.n)) a *= 0.05;
+    else if (gFilter && p.n.field !== gFilter) a *= 0.25;
+    ctx.globalAlpha = a;
+    var spr = p.n.field && SPRF[p.n.field] ? (p.Z < 0 ? SPRF[p.n.field] : SPRB[p.n.field]) : (p.Z < 0 ? SPR_FRONT : SPR_BACK);
     ctx.drawImage(spr, p.X - r, p.Y - r, r * 2, r * 2);
   });
   ctx.globalAlpha = 1;
   var ink = getComputedStyle(document.body).getPropertyValue("--ink");
   var bgc = getComputedStyle(document.body).getPropertyValue("--bg");
-  var labeled = proj.filter(function(p){ return p.sc > 0.74 && p.n.deg >= 2; })
+  var labeled = proj.filter(function(p){ return p.sc > 0.74 && p.n.deg >= 2 && (!gFilter || p.n.field === gFilter); })
     .sort(function(u, v){ return v.n.deg - u.n.deg; }).slice(0, 42);
   ctx.textAlign = "center";
   labeled.forEach(function(p){
@@ -496,14 +546,44 @@ function createStore(env) {
 /* ================= シナプスコア（JS移植） ================= */
 const DECAY = 0.02, LR = 0.15;
 
-function activate(edges, seeds, depth = 2, threshold = 0.05) {
+const FIELD_KEYS = ["science", "animals", "food", "body", "emotion", "society", "tech", "transport", "geography", "time", "life", "culture", "abstract", "self", "general"];
+function dominantField(fields, node) {
+  const f = fields ? fields[node] : null;
+  if (!f) return null;
+  let best = null, bestC = 1;
+  for (const [k, c] of Object.entries(f)) if (c > bestC) { bestC = c; best = k; }
+  return best;
+}
+function tagTokens(brain, tokens, field) {
+  if (!field || !FIELD_KEYS.includes(field)) return;
+  for (const tk of tokens) {
+    const m = brain.fields[tk] || (brain.fields[tk] = {});
+    m[field] = (m[field] || 0) + 1;
+  }
+}
+function inferField(brain, tokens) {
+  const agg = {};
+  for (const tk of tokens) {
+    const f = brain.fields[tk];
+    if (f) for (const [k, c] of Object.entries(f)) agg[k] = (agg[k] || 0) + c;
+  }
+  let best = null, bestC = 1;
+  for (const [k, c] of Object.entries(agg)) if (c > bestC) { bestC = c; best = k; }
+  return best;
+}
+function gateFactor(fields, u, v) {
+  if (!fields) return 1.0;
+  const fu = dominantField(fields, u), fv = dominantField(fields, v);
+  return fu && fv && fu !== fv ? 0.4 : 1.0;
+}
+function activate(edges, seeds, depth = 2, threshold = 0.05, fields = null) {
   const act = { ...seeds };
   let frontier = { ...seeds };
   for (let d = 0; d < depth; d++) {
     const nxt = {};
     for (const [node, a] of Object.entries(frontier)) {
       for (const [nb, e] of Object.entries(edges[node] || {})) {
-        nxt[nb] = (nxt[nb] || 0) + a * e.w;
+        nxt[nb] = (nxt[nb] || 0) + a * e.w * gateFactor(fields, node, nb);
       }
     }
     frontier = {};
@@ -562,6 +642,30 @@ async function consolidateBrain(store, brain, isAuto) {
   return { pruned, snapshot: name };
 }
 
+// 経験ログに保存された文の中から、シードと活性に最も合う文を想起する
+function endPunct(s) {
+  if (/[。.!?]$/.test(s)) return s;
+  return /[a-zA-Z0-9]$/.test(s) ? s + "." : s + "。";
+}
+function retrieveSentences(brain, seeds, activated, excludeText) {
+  const seen = new Set(), scored = [];
+  for (const rec of brain.log) {
+    if (rec.action !== "chat") continue;
+    const text = rec.result;
+    if (!text || text === excludeText || seen.has(text) || /[?？]\s*$/.test(text)) continue;
+    seen.add(text);
+    const toks = Array.isArray(rec.in) ? rec.in.filter((x) => typeof x === "string") : [];
+    let score = 0, seedHit = 0;
+    for (const tk of toks) {
+      if (tk in seeds) { score += 2; seedHit++; }
+      else if (activated[tk]) score += activated[tk];
+    }
+    if (seedHit >= 1 && score >= 2) scored.push([score, text]);
+  }
+  scored.sort((a, b) => b[0] - a[0]);
+  return scored;
+}
+
 function stats(edges) {
   const nodes = new Set(Object.keys(edges));
   let count = 0, sum = 0;
@@ -606,7 +710,7 @@ function tokenize(text) {
 const IRREVERSIBLE = ["送信して", "送って", "削除して", "消して", "公開して", "買って", "支払って", "投稿して", "send this", "send it", "delete this", "delete it", "publish this", "buy this", "pay for this"];
 
 /* ================= 本体 ================= */
-const defaultBrain = () => ({ edges: {}, log: [], guard: [], guardSeq: 0, expSeq: 0, auto: { enabled: true, lastAt: 0, lastSeq: 0, runs: 0 } });
+const defaultBrain = () => ({ edges: {}, log: [], guard: [], guardSeq: 0, expSeq: 0, fields: {}, auto: { enabled: true, lastAt: 0, lastSeq: 0, runs: 0 } });
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8" } });
@@ -643,10 +747,11 @@ const __worker = {
 
     const brain = (await store.loadBrain()) || defaultBrain();
     if (!brain.auto) brain.auto = { enabled: true, lastAt: 0, lastSeq: 0, runs: 0 };
+    if (!brain.fields) brain.fields = {};
 
     // --- チャット（連絡手段） ---
     if (path === "/api/chat" && request.method === "POST") {
-      const { message } = await request.json();
+      const { message, field } = await request.json();
       const text = (message || "").trim();
       if (!text) return json({ detail: "message is empty" }, 400);
 
@@ -664,18 +769,25 @@ const __worker = {
 
       const tokens = tokenize(text);
       const seeds = Object.fromEntries(tokens.map((t) => [t, 1.0]));
-      const activated = tokens.length ? activate(brain.edges, seeds) : {};
+      const activated = tokens.length ? activate(brain.edges, seeds, 2, 0.05, brain.fields) : {};
+      const sents = tokens.length ? retrieveSentences(brain, seeds, activated, text) : [];
+      const effField = FIELD_KEYS.includes(field) ? field : inferField(brain, tokens);
       const recalled = Object.entries(activated).filter(([n]) => !(n in seeds)).sort((a, b) => b[1] - a[1]);
       if (tokens.length) learn(brain.edges, seeds, 0.6);
+      tagTokens(brain, tokens, effField);
       const rec = addLog(brain, tokens, "chat", text, 0.6);
       if (brain.auto.enabled && brain.expSeq - brain.auto.lastSeq >= 30) await consolidateBrain(store, brain, true);
       await store.saveBrain(brain);
 
       let reply;
-      if (recalled.length) reply = `Recalled: ${recalled.slice(0, 5).map(([n]) => n).join(", ")}`;
+      if (sents.length) {
+        reply = endPunct(sents[0][1]);
+        if (sents.length > 1 && sents[1][0] >= 1.0) reply += " " + endPunct(sents[1][1]);
+      }
+      else if (recalled.length) reply = `Recalled: ${recalled.slice(0, 5).map(([n]) => n).join(", ")}`;
       else if (tokens.length) reply = "Learned.";
       else reply = "I could not break that into words.";
-      return json({ reply, activated, experience_id: rec.id });
+      return json({ reply, activated, experience_id: rec.id, field: effField });
     }
 
     // --- フィードバック（報酬信号） ---
@@ -691,19 +803,38 @@ const __worker = {
     }
 
     // --- 管理画面用 ---
-    if (path === "/api/memory/graph") return json(graph(brain.edges));
+    if (path === "/api/memory/graph") {
+      const g = graph(brain.edges);
+      for (const n of g.nodes) n.field = dominantField(brain.fields, n.id);
+      return json(g);
+    }
     if (path === "/api/experience") {
       const limit = Number(url.searchParams.get("limit") || 50);
       return json(brain.log.slice(-limit).reverse());
     }
     if (path === "/api/metrics") {
-      return json({ ...stats(brain.edges), experience_count: brain.expSeq, guard_pending: brain.guard.filter((g) => g.status === "pending").length, auto_learn: brain.auto.enabled, auto_runs: brain.auto.runs, last_auto_at: brain.auto.lastAt });
+      const fieldSummary = {};
+      for (const node of Object.keys(brain.fields)) { const df = dominantField(brain.fields, node); if (df) fieldSummary[df] = (fieldSummary[df] || 0) + 1; }
+      return json({ ...stats(brain.edges), experience_count: brain.expSeq, guard_pending: brain.guard.filter((g) => g.status === "pending").length, auto_learn: brain.auto.enabled, auto_runs: brain.auto.runs, last_auto_at: brain.auto.lastAt, fields: fieldSummary });
     }
     if (path === "/api/consolidate" && request.method === "POST") {
       const ng = requireAdmin(request, env); if (ng) return ng;
       const { pruned, snapshot } = await consolidateBrain(store, brain, false);
       await store.saveBrain(brain);
       return json({ ok: true, pruned_edges: pruned, snapshot, stats: stats(brain.edges) });
+    }
+    if (path === "/api/fields/backfill" && request.method === "POST") {
+      const ng = requireAdmin(request, env); if (ng) return ng;
+      const { items } = await request.json();
+      let tagged = 0;
+      for (const it of items || []) {
+        if (!it || !FIELD_KEYS.includes(it.field) || !it.text) continue;
+        const toks = tokenize(it.text);
+        tagTokens(brain, toks, it.field);
+        tagged += toks.length;
+      }
+      await store.saveBrain(brain);
+      return json({ ok: true, tagged });
     }
     if (path === "/api/settings" && request.method === "GET") {
       return json({ auto_learn: brain.auto.enabled, auto_runs: brain.auto.runs, last_auto_at: brain.auto.lastAt });
@@ -754,6 +885,7 @@ const __worker = {
     const store = createStore(env);
     const brain = (await store.loadBrain()) || defaultBrain();
     if (!brain.auto) brain.auto = { enabled: true, lastAt: 0, lastSeq: 0, runs: 0 };
+    if (!brain.fields) brain.fields = {};
     if (!brain.auto.enabled) return;
     await consolidateBrain(store, brain, true);
     await store.saveBrain(brain);

@@ -10,7 +10,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from synapse_core import SynapticMemory, ExperienceLog
+from synapse_core import (FIELD_KEYS, ExperienceLog, SynapticMemory,
+                        dominant_field, infer_field, tag_tokens)
 
 BASE = Path(__file__).resolve().parent.parent
 DATA = BASE / "data"
@@ -24,6 +25,14 @@ if STATE_FILE.exists():
     mem.load(STATE_FILE)
 log = ExperienceLog(str(DATA / "experience.jsonl"))
 
+FIELDS_FILE = DATA / "fields.json"
+FIELDS = {}
+if FIELDS_FILE.exists():
+    try:
+        FIELDS = json.loads(FIELDS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        FIELDS = {}
+
 guard_queue = []  # {id, action, detail, status, t}
 guard_seq = 0
 
@@ -32,6 +41,7 @@ app = FastAPI(title="Synaptic AI")
 
 def persist():
     mem.save(STATE_FILE)
+    FIELDS_FILE.write_text(json.dumps(FIELDS, ensure_ascii=False), encoding="utf-8")
 
 
 def require_admin(x_admin_token: str = ""):
@@ -64,6 +74,41 @@ IRREVERSIBLE = ["送信して", "送って", "削除して", "消して", "公�
 # ---------------- チャット（連絡手段） ----------------
 class ChatIn(BaseModel):
     message: str
+    field: str | None = None
+
+
+class BackfillIn(BaseModel):
+    items: list[dict]
+
+
+def _end_punct(s):
+    if s.endswith(("。", ".", "!", "?", "！", "？")):
+        return s
+    return s + ("." if s[-1].isascii() and s[-1].isalnum() else "。")
+
+
+def retrieve_sentences(seeds, activated, exclude_text):
+    seen, scored = set(), []
+    for rec in log.recent(100000):
+        if rec.get("action") != "chat":
+            continue
+        text = rec.get("result")
+        if not text or text == exclude_text or text in seen or text.rstrip().endswith(("?", "？")):
+            continue
+        seen.add(text)
+        score, seed_hit = 0.0, 0
+        for tk in rec.get("in", []):
+            if not isinstance(tk, str):
+                continue
+            if tk in seeds:
+                score += 2
+                seed_hit += 1
+            elif tk in activated:
+                score += activated[tk]
+        if seed_hit >= 1 and score >= 2:
+            scored.append((score, text))
+    scored.sort(key=lambda x: -x[0])
+    return scored
 
 
 @app.post("/api/chat")
@@ -88,32 +133,39 @@ def chat(body: ChatIn):
         log.add([text], "guard_blocked", f"承認キュー #{guard_seq} に回送", 0.0)
         persist()
         return {
-            "reply": f"その操作は取り返しがつかない種類なので、自分では実行しません。管理画面の承認キュー（#{guard_seq}）に回しました。承認されれば実行されます。",
+            "reply": f"That action is irreversible, so I will not do it myself. I sent it to the approval queue in Admin (#{guard_seq}). It will run if approved.",
             "activated": {},
             "guard_id": guard_seq,
         }
 
     tokens = tokenize(text)
     seeds = {t: 1.0 for t in tokens}
-    activated = mem.activate(seeds) if tokens else {}
+    activated = mem.activate(seeds, fields=FIELDS) if tokens else {}
     recalled = sorted(
         ((n, a) for n, a in activated.items() if n not in seeds),
         key=lambda x: -x[1],
     )
+    sents = retrieve_sentences(seeds, activated, text) if tokens else []
+    eff_field = body.field if body.field in FIELD_KEYS else infer_field(FIELDS, tokens)
     if tokens:
         mem.learn({t: 1.0 for t in tokens}, reward=0.6)
+    tag_tokens(FIELDS, tokens, eff_field)
     rec = log.add(tokens, "chat", text, 0.6)
     persist()
     maybe_auto_consolidate()
 
-    if recalled:
+    if sents:
+        reply = _end_punct(sents[0][1])
+        if len(sents) > 1 and sents[1][0] >= 1.0:
+            reply += " " + _end_punct(sents[1][1])
+    elif recalled:
         names = ", ".join(n for n, _ in recalled[:5])
         reply = f"Recalled: {names}"
     elif tokens:
         reply = "Learned."
     else:
         reply = "I could not break that into words."
-    return {"reply": reply, "activated": activated, "experience_id": rec["id"]}
+    return {"reply": reply, "activated": activated, "experience_id": rec["id"], "field": eff_field}
 
 
 @app.websocket("/ws/chat")
@@ -147,7 +199,10 @@ def feedback(body: FeedbackIn):
 # ---------------- 管理画面用API ----------------
 @app.get("/api/memory/graph")
 def graph():
-    return mem.graph()
+    g = mem.graph()
+    for n in g["nodes"]:
+        n["field"] = dominant_field(FIELDS, n["id"])
+    return g
 
 
 @app.get("/api/experience")
@@ -164,6 +219,12 @@ def metrics():
     s["auto_learn"] = st["auto_enabled"]
     s["auto_runs"] = st["runs"]
     s["last_auto_at"] = st["last_at"]
+    field_summary = {}
+    for node in FIELDS:
+        df = dominant_field(FIELDS, node)
+        if df:
+            field_summary[df] = field_summary.get(df, 0) + 1
+    s["fields"] = field_summary
     return s
 
 
@@ -221,6 +282,20 @@ def consolidate(x_admin_token: str = Header(default="")):
 
 class SettingsIn(BaseModel):
     auto_learn: bool
+
+
+@app.post("/api/fields/backfill")
+def fields_backfill(body: BackfillIn, x_admin_token: str | None = Header(default=None)):
+    require_admin(x_admin_token)
+    tagged = 0
+    for it in body.items:
+        if not it or it.get("field") not in FIELD_KEYS or not it.get("text"):
+            continue
+        toks = tokenize(it["text"])
+        tag_tokens(FIELDS, toks, it["field"])
+        tagged += len(toks)
+    persist()
+    return {"ok": True, "tagged": tagged}
 
 
 @app.get("/api/settings")

@@ -1,4 +1,3 @@
-// Web app UI (admin console + chat). Same content as app/static/index.html.
 export const HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -45,7 +44,11 @@ export const HTML = `<!DOCTYPE html>
   #tabbar button{ flex:1; border:0; background:none; color:var(--muted); font-size:11px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; padding:6px 0; -webkit-tap-highlight-color:transparent; }
   #tabbar button .ic{ font-size:19px; line-height:1; }
   #tabbar button.on{ color:var(--ink); font-weight:700; }
-  .livedot{ width:8px; height:8px; border-radius:50%; background:#34c759; display:inline-block; animation:pulse 1.6s infinite; }
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+.chip i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.livedot{ width:8px; height:8px; border-radius:50%; background:#34c759; display:inline-block; animation:pulse 1.6s infinite; }
   @keyframes pulse{ 0%{ opacity:1; } 50%{ opacity:.25; } 100%{ opacity:1; } }
   .snaprow{ display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding:7px 0; }
 </style>
@@ -75,6 +78,7 @@ export const HTML = `<!DOCTYPE html>
     <div class="card">
       <h2>Synapse Structure <span class="livedot" title="Live"></span><span class="muted" style="font-weight:400">Live</span></h2>
       <canvas id="graphCanvas" width="800" height="520"></canvas>
+      <div class="chips" id="fieldChips"></div>
       <div class="rowflex" style="margin-top:10px;justify-content:space-between">
         <span class="muted">Drag to rotate</span>
         <button class="btn" onclick="loadGraph()">Reload</button>
@@ -259,12 +263,52 @@ function makeSprite(stops){
 }
 var SPR_FRONT = makeSprite([[0, "#ffffff"], [0.25, "#b9d2ff"], [0.62, "#6c8cff"], [1, "#2c4cc0"]]);
 var SPR_BACK = makeSprite([[0, "#8fa5d8"], [0.3, "#54679f"], [0.7, "#31477e"], [1, "#1d2c52"]]);
+var FIELD_META = {
+  science:   { name: "Science",        c: ["#b9d2ff", "#6c8cff", "#2c4cc0"] },
+  animals:   { name: "Animals",        c: ["#b5ecd2", "#43b581", "#1f7a4d"] },
+  food:      { name: "Food",           c: ["#ffdca8", "#f5a13d", "#b06f14"] },
+  body:      { name: "Body & Health",  c: ["#ffc2da", "#ef6aa5", "#a83a68"] },
+  emotion:   { name: "Emotions",       c: ["#dcc8ff", "#a678ff", "#6b3fc4"] },
+  society:   { name: "Society & Money", c: ["#f7e39a", "#e8c33c", "#9a7b12"] },
+  tech:      { name: "Technology",     c: ["#a9ecf5", "#38c6d9", "#177e8f"] },
+  transport: { name: "Transport",      c: ["#ccd6e4", "#8d9db6", "#4d5c73"] },
+  geography: { name: "Geography",      c: ["#cdeec7", "#7bc96f", "#3d7a34"] },
+  time:      { name: "Time & Seasons", c: ["#ffc9d8", "#f27d9d", "#a83a58"] },
+  life:      { name: "Daily Life",     c: ["#e6d3c0", "#b08968", "#6f4f33"] },
+  culture:   { name: "Culture",        c: ["#efc2f5", "#c95dd6", "#83348f"] },
+  abstract:  { name: "Concepts",       c: ["#eef1f6", "#b9c0cc", "#5d6675"] },
+  self:      { name: "Self & Learning", c: ["#ffc4b0", "#ff7a59", "#b03f1f"] },
+  general:   { name: "General",        c: ["#c3ccd9", "#7f8ca3", "#4a5468"] }
+};
+var SPRF = {}, SPRB = {};
+Object.keys(FIELD_META).forEach(function(k){
+  var c = FIELD_META[k].c;
+  SPRF[k] = makeSprite([[0, "#ffffff"], [0.25, c[0]], [0.62, c[1]], [1, c[2]]]);
+  SPRB[k] = makeSprite([[0, c[1]], [0.35, c[2]], [1, c[2]]]);
+});
+var gFilter = null;
+function fieldPass(n){ return !gFilter || n.field === gFilter || !n.field; }
+function renderFieldChips(g){
+  var box = document.getElementById("fieldChips");
+  if (!box) return;
+  var counts = {};
+  g.nodes.forEach(function(n){ if (n.field) counts[n.field] = (counts[n.field] || 0) + 1; });
+  var keys = Object.keys(counts).sort(function(a, b){ return counts[b] - counts[a]; });
+  if (!keys.length) { box.innerHTML = ""; return; }
+  var html = '<button class="chip' + (gFilter ? "" : " on") + '" onclick="setFieldFilter(null)">All</button>';
+  keys.forEach(function(k){
+    var m = FIELD_META[k] || { name: k, c: ["#ccc", "#999", "#666"] };
+    html += '<button class="chip' + (gFilter === k ? " on" : "") + '" onclick="setFieldFilter(' + "'" + k + "'" + ')"><i style="background:' + m.c[1] + '"></i>' + m.name + " " + counts[k] + "</button>";
+  });
+  box.innerHTML = html;
+}
+function setFieldFilter(k){ gFilter = k; if (window._lastGraph) renderFieldChips(window._lastGraph); }
 function buildNodes(g){
   var deg = {};
   g.links.forEach(function(l){ deg[l.source] = (deg[l.source] || 0) + 1; deg[l.target] = (deg[l.target] || 0) + 1; });
   return g.nodes.map(function(n){
     var p = nodePos(n.id);
-    return { id: n.id, act: n.activation || 0, deg: deg[n.id] || 0, x: p.x, y: p.y, z: p.z };
+    return { id: n.id, field: n.field || null, act: n.activation || 0, deg: deg[n.id] || 0, x: p.x, y: p.y, z: p.z };
   });
 }
 function linkRefs(nodes, links){
@@ -282,6 +326,7 @@ async function loadGraph(){
     f.ctx.fillText("No memories yet", f.W / 2, f.H / 2);
     g3d = null; return;
   }
+  window._lastGraph = g; renderFieldChips(g);
   var nodes = buildNodes(g);
   g3d = { nodes: nodes, links: linkRefs(nodes, g.links), ax: 0.5, ay: 0, drag: false, px: 0, py: 0 };
   if (gAnim) cancelAnimationFrame(gAnim);
@@ -290,6 +335,7 @@ async function loadGraph(){
 async function mergeGraph(){
   try {
     var g = await (await fetch("/api/memory/graph")).json();
+    window._lastGraph = g; renderFieldChips(g);
     refreshMetrics();
     if (!g.nodes.length || !g3d) { if (g.nodes.length) loadGraph(); return; }
     var deg = {};
@@ -299,8 +345,8 @@ async function mergeGraph(){
     g3d.nodes = g3d.nodes.filter(function(n){ return keep[n.id]; });
     var have = {}; g3d.nodes.forEach(function(n){ have[n.id] = n; });
     g.nodes.forEach(function(n){
-      if (have[n.id]) { have[n.id].deg = deg[n.id] || 0; have[n.id].act = n.activation || 0; }
-      else { var p = nodePos(n.id); g3d.nodes.push({ id: n.id, act: n.activation || 0, deg: deg[n.id] || 0, x: p.x, y: p.y, z: p.z }); }
+      if (have[n.id]) { have[n.id].deg = deg[n.id] || 0; have[n.id].act = n.activation || 0; have[n.id].field = n.field || null; }
+      else { var p = nodePos(n.id); g3d.nodes.push({ id: n.id, field: n.field || null, act: n.activation || 0, deg: deg[n.id] || 0, x: p.x, y: p.y, z: p.z }); }
     });
     g3d.links = linkRefs(g3d.nodes, g.links);
   } catch(e){}
@@ -332,6 +378,7 @@ function drawGraph(){
     .sort(function(u, v){ return (v.a.Z + v.b.Z) - (u.a.Z + u.b.Z); });
   ctx.lineCap = "round";
   links.forEach(function(l){
+    if (gFilter && !(fieldPass(l.a.n) && fieldPass(l.b.n) && (l.a.n.field === gFilter || l.b.n.field === gFilter))) return;
     var depth = Math.max(0.12, 1 - (l.a.Z + l.b.Z + 2) / 5);
     var alpha = Math.max(0.04, Math.min(0.85, Math.abs(l.w) * 2.6) * (0.2 + 0.8 * depth));
     ctx.strokeStyle = "rgba(108,140,255," + alpha.toFixed(3) + ")";
@@ -340,14 +387,17 @@ function drawGraph(){
   });
   proj.sort(function(u, v){ return v.Z - u.Z; }).forEach(function(p){
     var r = (4 + Math.min(9, p.n.deg * 1.7 + p.n.act * 0.4)) * p.sc;
-    ctx.globalAlpha = Math.max(0.35, Math.min(1, 1.15 - (p.Z + 1) * 0.32));
-    var spr = p.Z < 0 ? SPR_FRONT : SPR_BACK;
+    var a = Math.max(0.35, Math.min(1, 1.15 - (p.Z + 1) * 0.32));
+    if (gFilter && !fieldPass(p.n)) a *= 0.05;
+    else if (gFilter && p.n.field !== gFilter) a *= 0.25;
+    ctx.globalAlpha = a;
+    var spr = p.n.field && SPRF[p.n.field] ? (p.Z < 0 ? SPRF[p.n.field] : SPRB[p.n.field]) : (p.Z < 0 ? SPR_FRONT : SPR_BACK);
     ctx.drawImage(spr, p.X - r, p.Y - r, r * 2, r * 2);
   });
   ctx.globalAlpha = 1;
   var ink = getComputedStyle(document.body).getPropertyValue("--ink");
   var bgc = getComputedStyle(document.body).getPropertyValue("--bg");
-  var labeled = proj.filter(function(p){ return p.sc > 0.74 && p.n.deg >= 2; })
+  var labeled = proj.filter(function(p){ return p.sc > 0.74 && p.n.deg >= 2 && (!gFilter || p.n.field === gFilter); })
     .sort(function(u, v){ return v.n.deg - u.n.deg; }).slice(0, 42);
   ctx.textAlign = "center";
   labeled.forEach(function(p){

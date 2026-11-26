@@ -11,6 +11,40 @@ import time
 from collections import defaultdict
 
 
+FIELD_KEYS = ["science", "animals", "food", "body", "emotion", "society", "tech", "transport", "geography", "time", "life", "culture", "abstract", "self", "general"]
+
+
+def dominant_field(fields, node):
+    f = (fields or {}).get(node)
+    if not f:
+        return None
+    best, best_c = None, 1
+    for k, c in f.items():
+        if c > best_c:
+            best, best_c = k, c
+    return best
+
+
+def tag_tokens(fields, tokens, field):
+    if not field or field not in FIELD_KEYS:
+        return
+    for tk in tokens:
+        m = fields.setdefault(tk, {})
+        m[field] = m.get(field, 0) + 1
+
+
+def infer_field(fields, tokens):
+    agg = {}
+    for tk in tokens:
+        for k, c in (fields or {}).get(tk, {}).items():
+            agg[k] = agg.get(k, 0) + c
+    best, best_c = None, 1
+    for k, c in agg.items():
+        if c > best_c:
+            best, best_c = k, c
+    return best
+
+
 class SynapticMemory:
     def __init__(self, decay=0.02, lr=0.15):
         self.edges = defaultdict(dict)  # edges[a][b] = {"w": float, "imp": float}
@@ -19,15 +53,24 @@ class SynapticMemory:
         self.last_seen = {}
 
     # ---------- 活性化（連想） ----------
-    def activate(self, seeds, depth=2, threshold=0.05):
-        """seeds: {node: activation} から接続を伝って関連ノードを活性化する。"""
+    def activate(self, seeds, depth=2, threshold=0.05, fields=None):
+        """seeds: {node: activation} から接続を伝って関連ノードを活性化する。
+
+        fields が与えられた場合、支配分野が異なるノード間の伝播は弱める（ゲート）。
+        """
         act = dict(seeds)
         frontier = dict(seeds)
         for _ in range(depth):
             nxt = defaultdict(float)
             for node, a in frontier.items():
                 for nb, e in self.edges.get(node, {}).items():
-                    nxt[nb] += a * e["w"]
+                    factor = 1.0
+                    if fields:
+                        fu = dominant_field(fields, node)
+                        fv = dominant_field(fields, nb)
+                        if fu and fv and fu != fv:
+                            factor = 0.4
+                    nxt[nb] += a * e["w"] * factor
             frontier = {
                 n: round(v, 4)
                 for n, v in nxt.items()
