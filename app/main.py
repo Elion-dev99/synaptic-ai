@@ -284,6 +284,32 @@ class SettingsIn(BaseModel):
     auto_learn: bool
 
 
+class BulkIn(BaseModel):
+    items: list[dict]
+
+
+@app.post("/api/teach/bulk")
+def teach_bulk(body: BulkIn, x_admin_token: str | None = Header(default=None)):
+    require_admin(x_admin_token)
+    learned = skipped = 0
+    for it in body.items[:1000]:
+        text = (it.get("message") or "").strip()
+        if not text:
+            skipped += 1
+            continue
+        tokens = tokenize(text)
+        if not tokens:
+            skipped += 1
+            continue
+        mem.learn({tk: 1.0 for tk in tokens}, reward=0.6)
+        eff = it.get("field") if it.get("field") in FIELD_KEYS else infer_field(FIELDS, tokens)
+        tag_tokens(FIELDS, tokens, eff)
+        log.add(tokens, "chat", text, 0.6)
+        learned += 1
+    persist()
+    return {"ok": True, "learned": learned, "skipped": skipped}
+
+
 @app.post("/api/fields/backfill")
 def fields_backfill(body: BackfillIn, x_admin_token: str | None = Header(default=None)):
     require_admin(x_admin_token)

@@ -6,6 +6,7 @@
 - 最後にプローブで思い出しをテストする
 """
 import json
+import pathlib
 import sys
 import time
 import urllib.request
@@ -27,6 +28,10 @@ CATEGORY_FIELDS = [
     ("生活", "life"), ("Daily life", "life"), ("場所", "life"),
     ("スポーツ", "culture"), ("文化", "culture"), ("Sports", "culture"), ("人物", "culture"), ("figures", "culture"),
     ("抽象", "abstract"), ("Abstract", "abstract"), ("熟語", "abstract"),
+    ("神話", "culture"), ("宗教", "culture"), ("歴史", "culture"), ("文学", "culture"), ("音楽", "culture"), ("映画", "culture"), ("言語", "culture"),
+    ("経済", "society"), ("政治", "society"), ("法律", "society"),
+    ("哲学", "abstract"), ("思想", "abstract"),
+    ("植物", "science"), ("気象", "science"), ("環境", "science"), ("海洋", "science"),
     ("学習", "self"),
     ("基礎", "general"),
 ]
@@ -77,15 +82,28 @@ def main():
     print("BEFORE:", json.dumps(before, ensure_ascii=False))
     print("SNAPSHOT:", call("/api/snapshot", {"name": snap_name}))
 
+    start = int(sys.argv[3]) if len(sys.argv) > 3 else 1
+    failed = []
     for i, (text, fld) in enumerate(sentences, 1):
+        if i < start:
+            continue
         payload = {"message": text}
         if fld:
             payload["field"] = fld
-        call("/api/chat", payload)
+        try:
+            call("/api/chat", payload)
+        except Exception as e:  # noqa: BLE001
+            failed.append(text)
+            print(f"  FAILED at {i}: {e}", flush=True)
+            time.sleep(2)
         if i % 50 == 0:
-            print(f"  taught {i}/{len(sentences)}", flush=True)
-        time.sleep(0.12)
-    print(f"TAUGHT: {len(sentences)}")
+            print(f"  taught {i}/{len(sentences)} (failed {len(failed)})", flush=True)
+        time.sleep(0.25)
+    print(f"TAUGHT: {len(sentences)} (from {start}, failed {len(failed)})")
+    if failed:
+        fp = pathlib.Path(str(dataset_path) + ".failed.txt")
+        fp.write_text("\n".join(failed) + "\n", encoding="utf-8")
+        print("FAILED LIST:", fp)
 
     after = call("/api/metrics")
     print("AFTER:", json.dumps(after, ensure_ascii=False))

@@ -495,6 +495,22 @@ refreshMetrics();
      loadSnapshot(n):      Promise<object|null>  edges を返す
      listSnapshots():      Promise<string[]>
 ====================================================== */
+// v2シャード分割ストレージ:
+//   v2:meta {guard, guardSeq, expSeq, auto, k, logChunks}
+//   v2:e:<i> 接続（送信元ノードのハッシュで分割）
+//   v2:f:<i> 分野タグ（同じ分割）
+//   v2:l:<j> 経験ログ（1000件ずつ）
+// 旧形式（"brain" 1行）は読み取り互換を保ち、保存時に v2 へ移行する。
+function shardHash(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+const SHARD_TARGET = 350000; // 1行あたりの目標バイト数
+const LOG_CHUNK = 1000;
+
+let BRAIN_CACHE = { rev: -1, brain: null };
+
 class D1Store {
   constructor(db) { this.db = db; }
   async _ensure() {
@@ -503,9 +519,16 @@ class D1Store {
     ).run();
   }
   async _get(key) {
+    const raw = await this._getRaw(key);
+    return raw === null ? null : JSON.parse(raw);
+  }
+  async _getRaw(key) {
     await this._ensure();
     const row = await this.db.prepare("SELECT value FROM kv_store WHERE key = ?").bind(key).first();
-    return row ? JSON.parse(row.value) : null;
+    if (!row) return null;
+    if (!this._written) this._written = new Map();
+    this._written.set(key, row.value);
+    return row.value;
   }
   async _set(key, value) {
     await this._ensure();
@@ -513,14 +536,97 @@ class D1Store {
       "INSERT INTO kv_store (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
     ).bind(key, JSON.stringify(value)).run();
   }
-  async loadBrain() { return this._get("brain"); }
-  async saveBrain(brain) { return this._set("brain", brain); }
-  async saveSnapshot(name, edges) { return this._set("snap:" + name, edges); }
-  async loadSnapshot(name) { return this._get("snap:" + name); }
-  async listSnapshots() {
+  async _del(key) {
+    await this.db.prepare("DELETE FROM kv_store WHERE key = ?").bind(key).run();
+  }
+  async _keysLike(prefix) {
     await this._ensure();
-    const res = await this.db.prepare("SELECT key FROM kv_store WHERE key LIKE 'snap:%'").all();
-    return (res.results || []).map((r) => r.key.slice(5)).sort();
+    const res = await this.db.prepare("SELECT key FROM kv_store WHERE key LIKE ?").bind(prefix + "%").all();
+    return (res.results || []).map((r) => r.key);
+  }
+  async _batchSet(entries) {
+    await this._ensure();
+    for (let i = 0; i < entries.length; i += 50) {
+      const part = entries.slice(i, i + 50);
+      await this.db.batch(part.map(([k, v]) => this.db.prepare(
+        "INSERT INTO kv_store (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+      ).bind(k, v)));
+    }
+  }
+  _splitEdges(edges) {
+    let edgeCount = 0;
+    for (const nbrs of Object.values(edges)) edgeCount += Object.keys(nbrs).length;
+    const approx = edgeCount * 55;
+    const k = Math.max(1, Math.min(64, Math.ceil(approx / SHARD_TARGET)));
+    const shards = Array.from({ length: k }, () => ({}));
+    for (const [node, nbrs] of Object.entries(edges)) shards[shardHash(node) % k][node] = nbrs;
+    return shards;
+  }
+  async loadBrain() {
+    const meta = await this._get("v2:meta");
+    if (!meta) return this._get("brain"); // 旧形式（移行前）
+    if (BRAIN_CACHE.brain && BRAIN_CACHE.rev === meta.rev) return BRAIN_CACHE.brain;
+    const edges = {}, fields = {}, log = [];
+    const jobs = [];
+    for (let i = 0; i < meta.k; i++) {
+      jobs.push(this._get("v2:e:" + i).then((s) => { if (s) Object.assign(edges, s); }));
+      jobs.push(this._get("v2:f:" + i).then((s) => { if (s) Object.assign(fields, s); }));
+    }
+    for (let j = 0; j < meta.logChunks; j++) {
+      jobs.push(this._get("v2:l:" + j).then((arr) => { if (arr) log.push(...arr); }));
+    }
+    await Promise.all(jobs);
+    log.sort((a, b) => a.id - b.id);
+    const brain = { edges, fields, log, guard: meta.guard, guardSeq: meta.guardSeq, expSeq: meta.expSeq, auto: meta.auto };
+    BRAIN_CACHE = { rev: meta.rev || 0, brain };
+    return brain;
+  }
+  async saveBrain(brain) {
+    const rev = (BRAIN_CACHE.rev || 0) + 1;
+    const eShards = this._splitEdges(brain.edges);
+    const k = eShards.length;
+    const fShards = Array.from({ length: k }, () => ({}));
+    for (const [node, f] of Object.entries(brain.fields || {})) fShards[shardHash(node) % k][node] = f;
+    const logChunks = Math.max(1, Math.ceil(brain.log.length / LOG_CHUNK));
+    const entries = [];
+    entries.push(["v2:meta", JSON.stringify({ guard: brain.guard, guardSeq: brain.guardSeq, expSeq: brain.expSeq, auto: brain.auto, k, logChunks, rev })]);
+    eShards.forEach((s, i) => entries.push(["v2:e:" + i, JSON.stringify(s)]));
+    fShards.forEach((s, i) => entries.push(["v2:f:" + i, JSON.stringify(s)]));
+    for (let j = 0; j < logChunks; j++) entries.push(["v2:l:" + j, JSON.stringify(brain.log.slice(j * LOG_CHUNK, (j + 1) * LOG_CHUNK))]);
+    if (!this._written) this._written = new Map();
+    const dirty = entries.filter(([key, val]) => this._written.get(key) !== val);
+    await this._batchSet(dirty);
+    for (const [key, val] of dirty) this._written.set(key, val);
+    BRAIN_CACHE = { rev, brain };
+    // 旧シャードの残りと旧形式を掃除
+    const stale = (await this._keysLike("v2:")).filter((key) => !entries.some(([k2]) => k2 === key));
+    for (const key of stale) await this._del(key);
+    await this._del("brain");
+  }
+  async saveSnapshot(name, edges) {
+    const shards = this._splitEdges(edges);
+    const entries = [["snap2:" + name + ":meta", JSON.stringify({ k: shards.length })]];
+    shards.forEach((s, i) => entries.push(["snap2:" + name + ":e:" + i, JSON.stringify(s)]));
+    await this._batchSet(entries);
+    await this._del("snap:" + name);
+  }
+  async loadSnapshot(name) {
+    const meta = await this._get("snap2:" + name + ":meta");
+    if (!meta) return this._get("snap:" + name);
+    const edges = {};
+    const jobs = [];
+    for (let i = 0; i < meta.k; i++) jobs.push(this._get("snap2:" + name + ":e:" + i).then((s) => { if (s) Object.assign(edges, s); }));
+    await Promise.all(jobs);
+    return edges;
+  }
+  async listSnapshots() {
+    const names = new Set();
+    for (const key of await this._keysLike("snap:")) names.add(key.slice(5));
+    for (const key of await this._keysLike("snap2:")) {
+      const rest = key.slice(6);
+      if (rest.endsWith(":meta")) names.add(rest.slice(0, -5));
+    }
+    return [...names].sort();
   }
 }
 
@@ -835,6 +941,40 @@ const __worker = {
       }
       await store.saveBrain(brain);
       return json({ ok: true, tagged });
+    }
+    if (path === "/api/prune" && request.method === "POST") {
+      const ng = requireAdmin(request, env); if (ng) return ng;
+      const { threshold = 0.03 } = await request.json().catch(() => ({}));
+      let removed = 0;
+      for (const a of Object.keys(brain.edges)) {
+        for (const b of Object.keys(brain.edges[a])) {
+          const e = brain.edges[a][b];
+          if (Math.abs(e.w) < threshold && e.imp < 0.5) { delete brain.edges[a][b]; removed++; }
+        }
+        if (!Object.keys(brain.edges[a]).length) delete brain.edges[a];
+      }
+      await store.saveBrain(brain);
+      return json({ ok: true, removed, threshold, ...stats(brain.edges) });
+    }
+    if (path === "/api/teach/bulk" && request.method === "POST") {
+      const ng = requireAdmin(request, env); if (ng) return ng;
+      const { items } = await request.json();
+      let learned = 0, skipped = 0;
+      for (const it of (items || []).slice(0, 1000)) {
+        const text = (it && it.message ? String(it.message) : "").trim();
+        if (!text) { skipped++; continue; }
+        const tokens = tokenize(text);
+        if (!tokens.length) { skipped++; continue; }
+        const seeds = Object.fromEntries(tokens.map((x) => [x, 1.0]));
+        learn(brain.edges, seeds, 0.6);
+        const effField = FIELD_KEYS.includes(it.field) ? it.field : inferField(brain, tokens);
+        tagTokens(brain, tokens, effField);
+        addLog(brain, tokens, "chat", text, 0.6);
+        learned++;
+        if (learned % 500 === 0) decayAll(brain.edges);
+      }
+      await store.saveBrain(brain);
+      return json({ ok: true, learned, skipped });
     }
     if (path === "/api/settings" && request.method === "GET") {
       return json({ auto_learn: brain.auto.enabled, auto_runs: brain.auto.runs, last_auto_at: brain.auto.lastAt });
