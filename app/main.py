@@ -1,10 +1,4 @@
-"""体を持たないシナプス型自律AI — バックエンド
-
-- 連絡手段: チャットAPI（Webアプリから使う）
-- 管理画面: 記憶グラフ / 経験ログ / 評価指標 / スナップショット / 承認キュー
-- 安全ガード: 不可逆操作（送信・削除・公開・決済）は学習層では実行せず、
-  承認キューに回す。実行権は人間の承認が持つ。
-"""
+"""That action is irreversible, so I will not do it myself. I sent it to the approval queue in Admin. It will run if approved."""
 import os
 import re
 import time
@@ -50,18 +44,21 @@ PARTICLES = "は|が|を|に|へ|と|の|で|や|も|から|まで|より|けど
 STOP = {"です", "ます", "した", "する", "ある", "いる", "なる", "こと", "もの", "これ", "それ", "あれ", "私", "僕"}
 
 
+EN_STOP = {"the", "is", "of", "a", "an", "and", "or", "to", "in", "on", "for", "with", "are", "was", "were", "be", "been", "by", "at", "from", "as", "it", "its", "this", "that", "these", "those", "i", "you", "he", "she", "we", "they", "my", "your", "his", "her", "our", "their", "am", "do", "does", "did", "have", "has", "had", "will", "would", "can", "could", "should", "may", "might", "not", "no", "yes", "if", "but", "so", "than", "then", "when", "where", "which", "who", "what", "how", "all", "any", "each", "into", "over", "under", "about", "between"}
+
+
 def tokenize(text: str):
-    text = re.sub(r"[、。！？!?・「」『』（）()\[\]\s]+", " ", text)
-    parts = re.split(PARTICLES, text)
+    text = re.sub(r"[、。！？!?・「」『』（）()\[\],.:;'\"\s]+", " ", text)
     tokens = []
-    for p in parts:
-        p = p.strip()
-        if p and p not in STOP and len(p) <= 20 and p not in tokens:
-            tokens.append(p)
+    for chunk in text.split(" "):
+        for p in re.split(PARTICLES, chunk):
+            p = p.strip()
+            if p and p not in STOP and p.lower() not in EN_STOP and len(p) <= 20 and p not in tokens:
+                tokens.append(p)
     return tokens[:12]
 
 
-IRREVERSIBLE = ["送信して", "送って", "削除して", "消して", "公開して", "買って", "支払って", "投稿して"]
+IRREVERSIBLE = ["送信して", "送って", "削除して", "消して", "公開して", "買って", "支払って", "投稿して", "send this", "send it", "delete this", "delete it", "publish this", "buy this", "pay for this"]
 
 
 # ---------------- チャット（連絡手段） ----------------
@@ -110,12 +107,12 @@ def chat(body: ChatIn):
     maybe_auto_consolidate()
 
     if recalled:
-        names = "、".join(n for n, _ in recalled[:5])
-        reply = f"「{names}」を思い出しました。"
+        names = ", ".join(n for n, _ in recalled[:5])
+        reply = f"Recalled: {names}"
     elif tokens:
-        reply = "覚えました。"
+        reply = "Learned."
     else:
-        reply = "うまく切り分けられませんでした。"
+        reply = "I could not break that into words."
     return {"reply": reply, "activated": activated, "experience_id": rec["id"]}
 
 

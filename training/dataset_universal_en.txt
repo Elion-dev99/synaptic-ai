@@ -1,0 +1,419 @@
+# Universal learning dataset v2 (English, general knowledge associations)
+# Science and nature
+Gravity pulls objects downward
+Earth orbits the Sun
+Moon orbits Earth
+Light travels extremely fast
+Sound vibrates the air
+Water boils at 100 degrees
+Water freezes at 0 degrees
+Ice is frozen water
+Fire is hot and bright
+Electricity creates light and heat
+Magnets attract iron
+Plants grow with sunlight
+Flowers produce seeds
+Trees reveal age through rings
+Forests shelter animals
+Air is invisible
+Oxygen is essential for breathing
+Plants absorb carbon dioxide
+Earthquakes shake the ground
+Volcanoes erupt with magma
+Tsunamis are giant waves
+Typhoons bring strong wind and rain
+Lightning is an electric discharge
+Rainbows form by light refraction
+Shadows form when light is blocked
+Mirrors reflect light
+Lenses bend light
+Temperature measures heat
+Metal conducts heat well
+Glass is transparent and fragile
+# Animals and creatures
+Dogs are loyal friends
+Cats are independent and cute
+Birds fly in the sky
+Fish swim in water
+Butterflies drink flower nectar
+Bees collect honey
+Ants are hard workers
+Horses run fast
+Cows eat grass
+Pigs love mud
+Sheep have fluffy wool
+Rabbits have long ears
+Bears hibernate in winter
+Elephants have long trunks
+Giraffes have long necks
+Lions are kings of beasts
+Tigers have stripes
+Wolves live in packs
+Foxes are clever
+Turtles live long lives
+Snakes shed their skin
+Frogs are amphibians
+Penguins live in Antarctica
+Whales are ocean mammals
+Dolphins are smart swimmers
+Hawks are sky hunters
+Owls are active at night
+Spiders build webs with silk
+Mosquitoes suck blood
+# Food and cooking
+Rice is a staple food in Japan
+Miso is made from soybeans
+Soy sauce is a Japanese seasoning
+Salt comes from seawater
+Sugar is sweet
+Chili peppers are spicy
+Lemons are sour
+Chocolate is sweet and popular
+Cheese is made from milk
+Yogurt is fermented food
+Natto is sticky fermented food
+Tofu is made from soybeans
+Eggs are rich in nutrition
+Meat is rich in protein
+Fish is good for the brain
+Vegetables are healthy
+Fruits are rich in vitamins
+Apples are autumn fruit
+Mandarins are winter fruit
+Strawberries are popular in spring
+Watermelon is a summer fruit
+Grapes are autumn fruit
+Peaches are sweet and soft
+Pears are juicy
+Bananas give energy
+Simmering is a basic cooking method
+Grilling adds savory flavor
+Deep frying cooks with oil
+Steaming makes food tender
+Knives are cutting tools
+Pots are for simmering
+Frying pans are for grilling
+Sushi is iconic Japanese food
+Ramen is popular noodle soup
+Curry is a spiced dish
+Pizza is Italian food
+Pasta is Italian noodles
+Hamburgers taste American
+# Body and health
+Bones support the body
+Muscles move the body
+Skin protects the body
+Lungs handle breathing
+Stomach digests food
+Liver detoxifies
+Kidneys filter blood
+Blood carries oxygen
+Nerves transmit signals
+Eyes sense light
+Nose smells scents
+Tongue tastes flavors
+Teeth chew food
+Hair protects the head
+Exercise is good for health
+Sleep restores energy
+Balanced nutrition matters
+Hydration is essential
+Colds are caused by viruses
+Fever is a defense response
+Medicine helps cure illness
+Hospitals treat patients
+Doctors diagnose illness
+Nurses support patients
+Prevention beats treatment
+Handwashing prevents infection
+Brushing prevents cavities
+Sunburn harms skin
+Stretching improves flexibility
+Deep breathing calms the mind
+# Emotions and psychology
+Joy brightens the heart
+Sadness darkens the heart
+Anger explodes easily
+Fear protects us
+Embarrassment reddens cheeks
+Pride lifts the self
+Jealousy is a bitter emotion
+Gratitude warms people
+Expectation looks to the future
+Disappointment follows expectation
+Hope drives us forward
+Despair loses hope
+Courage faces fear
+Kindness heals people
+Empathy bridges hearts
+Trust builds relationships
+Promises protect trust
+Lies destroy trust
+Honesty builds trust
+Confidence seeds success
+Anxiety shakes confidence
+Focus creates results
+Boredom seeks change
+Curiosity drives learning
+Habits shape character
+Effort beats talent
+Patience bears fruit
+Laughter heals the heart
+Tears release emotion
+# Society, work and money
+Schools are places of education
+Teachers teach students
+Students learn at school
+Companies run businesses
+Presidents lead companies
+Employees work at companies
+Farmers grow crops
+Fishermen catch fish
+Carpenters build houses
+Police protect public safety
+Firefighters extinguish fires
+Mail delivers letters
+Banks keep money safe
+Money is a tool of exchange
+Salary rewards work
+Savings prepare for the future
+Investment grows money
+Taxes fund society
+Prices show value of goods
+Economy rises and falls
+Shopping exchanges money and goods
+Markets are places of trade
+Laws are rules of society
+Courts judge disputes
+Elections choose representatives
+Politics moves society
+Newspapers deliver news
+Television delivers video
+Radio delivers audio
+Libraries lend books
+Museums preserve history
+Art museums exhibit art
+Parks are places to relax
+Stations serve trains
+Airports serve airplanes
+Ports serve ships
+Bridges cross rivers
+Roads carry cars
+Traffic lights organize traffic
+Maps show places
+# Technology
+Computers calculate
+Programs are sets of instructions
+Software means programs
+Hardware means machines
+Internet connects the world
+Smartphones are pocket computers
+Artificial intelligence learns
+Robots move automatically
+Data is raw information
+Algorithms are procedures
+Bugs are program defects
+Passwords are secret keys
+Encryption protects information
+Cloud stores data online
+Sensors detect the world
+Batteries store electricity
+Motors spin with electricity
+Cameras record video
+Microphones capture sound
+Speakers output sound
+Screens display information
+Keyboards type characters
+Mice point on screens
+Printers print documents
+Drones fly automatically
+Satellites watch Earth from space
+Space is infinitely vast
+Moon landing was a human achievement
+Trains often run on electricity
+Cars run on engines or motors
+# Transport and movement
+Trains run on rails
+Shinkansen is a fast train
+Buses are public road transport
+Taxis are cars on call
+Bicycles move by human power
+Motorcycles have two wheels
+Airplanes fly in the sky
+Helicopters take off vertically
+Ships float on water
+Submarines dive underwater
+Walking is basic movement
+Running is fast movement
+Green light means go
+Red light means stop
+Crosswalks are for pedestrians
+Railway crossings cross tracks
+Traffic jams trap cars
+Accidents involve collisions
+Safe driving saves lives
+Seatbelts save lives
+Helmets protect heads
+Licenses permit driving
+Gasoline fuels cars
+Charging refills batteries
+Tickets prove boarding
+Ticket gates are station entrances
+Timetables show schedules
+Last train ends the day
+First train starts the day
+Travel brings new discoveries
+# Places, geography and Japan
+Tokyo is the capital of Japan
+Osaka is a merchant city
+Kyoto is an ancient capital
+Hokkaido is northern land
+Okinawa is southern islands
+Mount Fuji is the tallest mountain in Japan
+Japan is an island nation
+Pacific Ocean is a huge ocean
+Sea of Japan lies near the continent
+North is cold and south is warm
+Sun rises in the east
+Sun sets in the west
+Rivers flow from high to low
+Lakes are inland water
+Islands are land surrounded by water
+Deserts lack rain
+Jungles are dense forests
+Plains are flat land
+Valleys lie between mountains
+Capes jut into the sea
+Bays are indented coasts
+Hot springs are geothermal gifts
+Castles were fortresses
+Shrines enshrine gods
+Temples enshrine Buddha
+Festivals are local events
+Fireworks symbolize summer
+Cherry blossoms are flowers of Japan
+Autumn leaves color the fall
+Snow festivals celebrate winter
+# Time, seasons and events
+January starts the year
+New Year celebrates a fresh start
+February is the coldest time
+March is graduation season
+April is entrance season
+Cherry blossoms bloom in April
+May brings fresh greenery
+June is the rainy season
+July starts summer
+August is midsummer
+September starts autumn
+October is harvest season
+Halloween is a costume festival
+November peaks autumn leaves
+December ends the year
+Christmas is a winter festival
+Monday starts the week
+Friday nears the weekend
+Saturday is a day off for many
+Sunday is a day of rest
+Morning starts the day
+Daytime is for activity
+Evening is when the sun sets
+Night is for rest
+Birthdays commemorate birth
+Anniversaries are special days
+# Daily life
+Cleaning tidies living spaces
+Laundry washes clothes
+Cooking prepares meals
+Shopping buys necessities
+Garbage needs sorting
+Recycling reuses resources
+Electricity supports daily life
+Refrigerators cool food
+Washing machines wash clothes
+Vacuum cleaners suck dust
+Air conditioners adjust temperature
+Beds are for sleeping
+Pillows support the head
+Toothbrushes clean teeth
+Towels dry water
+Soap removes dirt
+Shampoo washes hair
+Umbrellas block rain
+Glasses help vision
+Clocks show time
+Keys lock doors
+Wallets hold money
+Bags carry things
+Shoes protect feet
+Hats block sunlight
+Gloves warm hands
+Masks block droplets
+Pharmacies sell medicine
+# Sports, arts and culture
+Baseball is played by nine players
+Soccer kicks a ball
+Basketball shoots into hoops
+Tennis hits with rackets
+Swimming exercises the whole body
+Marathons run long distances
+Judo is a Japanese martial art
+Sumo is the national sport of Japan
+Skiing slides on snow
+Skating slides on ice
+Mountain climbing ascends peaks
+Fishing catches fish
+Shogi is a Japanese board game
+Go competes for territory with stones
+Piano is a keyboard instrument
+Guitar is a string instrument
+Violin is played with a bow
+Drums are percussion instruments
+Singing is music of the voice
+Dance expresses with the body
+Painting is art of color and form
+Sculpture is three-dimensional art
+Photography captures moments
+Movies are visual stories
+Theater is stage art
+Novels are stories in text
+Poetry is rhythm of words
+Manga is Japanese culture
+Anime is Japanese animation pride
+History records the past
+Tradition passes things down
+# Abstract concepts and opposites
+Love cherishes others
+Friendship cares for friends
+Freedom escapes constraints
+Justice means right action
+Truth is the opposite of lies
+Lies are not truth
+Dreams appear in sleep and as goals
+Hope wishes for a bright future
+Peace has no conflict
+War opposes peace
+Knowledge accumulates learning
+Wisdom uses knowledge well
+Words convey hearts
+Silence has no words
+Time never returns
+Big and small are opposites
+Fast and slow are opposites
+Bright and dark are opposites
+Hot and cold are opposites
+Heavy and light are opposites
+Strong and weak are opposites
+New and old are opposites
+Near and far are opposites
+Many and few are opposites
+High and low are opposites
+Wide and narrow are opposites
+Deep and shallow are opposites
+Hard and soft are opposites
+Sweet and spicy are opposites
+Beginnings come with endings
+Causes bring results
+Questions come with answers
+Failure teaches success
+Persistence is power

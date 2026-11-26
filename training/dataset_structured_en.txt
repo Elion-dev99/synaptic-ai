@@ -1,0 +1,204 @@
+# Structured knowledge dataset (English)
+# Capitals
+The capital of China is Beijing
+The capital of South Korea is Seoul
+The capital of the United States is Washington
+The capital of the United Kingdom is London
+The capital of France is Paris
+The capital of Germany is Berlin
+The capital of Italy is Rome
+The capital of Spain is Madrid
+The capital of Portugal is Lisbon
+The capital of the Netherlands is Amsterdam
+The capital of Belgium is Brussels
+The capital of Switzerland is Bern
+The capital of Austria is Vienna
+The capital of Poland is Warsaw
+The capital of Czechia is Prague
+The capital of Hungary is Budapest
+The capital of Greece is Athens
+The capital of Turkey is Ankara
+The capital of Russia is Moscow
+The capital of Ukraine is Kyiv
+The capital of Sweden is Stockholm
+The capital of Norway is Oslo
+The capital of Denmark is Copenhagen
+The capital of Finland is Helsinki
+The capital of Ireland is Dublin
+The capital of Iceland is Reykjavik
+The capital of Canada is Ottawa
+The capital of Mexico is Mexico City
+The capital of Brazil is Brasilia
+The capital of Argentina is Buenos Aires
+The capital of Chile is Santiago
+The capital of Peru is Lima
+The capital of Colombia is Bogota
+The capital of Egypt is Cairo
+The capital of Kenya is Nairobi
+The capital of Saudi Arabia is Riyadh
+The capital of Iraq is Baghdad
+The capital of Iran is Tehran
+The capital of India is New Delhi
+The capital of Pakistan is Islamabad
+The capital of Thailand is Bangkok
+The capital of Vietnam is Hanoi
+The capital of Malaysia is Kuala Lumpur
+The capital of Indonesia is Jakarta
+The capital of the Philippines is Manila
+The capital of Mongolia is Ulaanbaatar
+The capital of Australia is Canberra
+The capital of New Zealand is Wellington
+Vatican City is the smallest country
+Australia is a country and a continent
+Madagascar is a large island nation
+# Japanese prefectures and capitals
+The capital of Hokkaido is Sapporo
+The capital of Aomori is Aomori City
+The capital of Iwate is Morioka
+The capital of Miyagi is Sendai
+The capital of Akita is Akita City
+The capital of Yamagata is Yamagata City
+The capital of Fukushima is Fukushima City
+The capital of Ibaraki is Mito
+The capital of Tochigi is Utsunomiya
+The capital of Gunma is Maebashi
+The capital of Saitama is Saitama City
+The capital of Chiba is Chiba City
+The capital of Kanagawa is Yokohama
+The capital of Niigata is Niigata City
+The capital of Toyama is Toyama City
+The capital of Ishikawa is Kanazawa
+The capital of Fukui is Fukui City
+The capital of Yamanashi is Kofu
+The capital of Nagano is Nagano City
+The capital of Gifu is Gifu City
+The capital of Shizuoka is Shizuoka City
+The capital of Aichi is Nagoya
+The capital of Mie is Tsu
+The capital of Shiga is Otsu
+The capital of Kyoto is Kyoto City
+The capital of Osaka is Osaka City
+The capital of Hyogo is Kobe
+The capital of Nara is Nara City
+The capital of Wakayama is Wakayama City
+The capital of Tottori is Tottori City
+The capital of Shimane is Matsue
+The capital of Okayama is Okayama City
+The capital of Hiroshima is Hiroshima City
+The capital of Yamaguchi is Yamaguchi City
+The capital of Tokushima is Tokushima City
+The capital of Kagawa is Takamatsu
+The capital of Ehime is Matsuyama
+The capital of Kochi is Kochi City
+The capital of Fukuoka is Fukuoka City
+The capital of Saga is Saga City
+The capital of Nagasaki is Nagasaki City
+The capital of Kumamoto is Kumamoto City
+The capital of Oita is Oita City
+The capital of Miyazaki is Miyazaki City
+The capital of Kagoshima is Kagoshima City
+The capital of Okinawa is Naha
+Aomori is famous for apples
+Shizuoka is famous for tea
+Kagawa is famous for udon
+Kyoto has many temples and shrines
+Osaka is famous for takoyaki
+Lake Biwa in Shiga is the largest lake in Japan
+# Elements
+Hydrogen is the lightest element
+Helium fills balloons
+Lithium is used in batteries
+Carbon is the basis of life
+Nitrogen fills most of the air
+Oxygen is an element needed for breathing
+Sodium is a component of salt
+Magnesium burns with bright light
+Aluminum is a light metal
+Silicon is a semiconductor material
+Sulfur smells at hot springs
+Calcium builds bones
+Iron is the most common metal
+Copper is used in wires
+Silver is a shining precious metal
+Gold is an eternal precious metal
+Mercury is a liquid metal
+Lead is a heavy metal
+Platinum is a precious metal
+Uranium is radioactive
+Diamond is a crystal of carbon
+Graphite is another form of carbon
+# Planets and space
+The Sun is the center of the solar system
+Mercury is closest to the Sun
+Venus is the morning star
+Earth is our planet
+Mars is the red planet
+Jupiter is the largest planet
+Saturn has rings
+Uranus tilts sideways
+Neptune is the farthest planet
+The Moon is Earth's satellite
+The solar system has eight planets
+The Milky Way is our galaxy
+Andromeda is a neighboring galaxy
+Black holes trap even light
+Comets have tails
+Meteors are shooting stars
+Telescopes observe distant space
+Light-years measure distance
+Solar eclipses hide the Sun behind the Moon
+Lunar eclipses darken the Moon
+Full moons are round
+Tides are caused by the Moon
+The North Star shows north
+# Historical figures
+Oda Nobunaga aimed to unify Japan
+Tokugawa Ieyasu founded the Edo shogunate
+Sakamoto Ryoma drove the Meiji Restoration
+Fukuzawa Yukichi founded Keio University
+Natsume Soseki wrote Botchan
+Murasaki Shikibu wrote The Tale of Genji
+Minamoto no Yoritomo founded the Kamakura shogunate
+Miyamoto Musashi was a master swordsman
+Katsushika Hokusai was an ukiyo-e artist
+Noguchi Hideyo was a bacteriologist
+Edison was the king of inventions
+Einstein created the theory of relativity
+Newton discovered gravity
+Galileo supported heliocentrism
+Darwin proposed evolution
+Marie Curie researched radioactivity
+The Wright brothers invented the airplane
+Bell invented the telephone
+Nightingale was the mother of nursing
+Gandhi led with nonviolence
+Lincoln abolished slavery as president
+Napoleon was an emperor of France
+Cleopatra was a queen of Egypt
+Confucius founded Confucianism
+# Units and math basics
+One kilometer is 1000 meters
+One meter is 100 centimeters
+One kilogram is 1000 grams
+One liter is 1000 milliliters
+One hour is 60 minutes
+One minute is 60 seconds
+One day is 24 hours
+One week is 7 days
+One year is 12 months
+Light travels about 300000 kilometers per second
+Sound travels about 340 meters per second
+Human body temperature is about 36 degrees
+Pi is about 3.14
+Angles of a triangle sum to 180 degrees
+A right angle is 90 degrees
+Prime numbers divide only by one and themselves
+Even numbers divide by two
+Odd numbers do not divide by two
+Addition adds numbers
+Subtraction removes numbers
+Multiplication repeats addition
+Division splits equally
+Percent means per hundred
+Average divides the total by the count
+Probability measures likelihood
