@@ -131,18 +131,24 @@ export const HTML = `<!DOCTYPE html>
 </div>
 
 <nav id="tabbar">
-  <button data-tab="home" class="on"><span class="ic">⌂</span>ホーム</button>
-  <button data-tab="chat"><span class="ic">❝</span>チャット</button>
-  <button data-tab="graph"><span class="ic">◉</span>記憶</button>
-  <button data-tab="log"><span class="ic">≡</span>ログ</button>
-  <button data-tab="admin"><span class="ic">⚙</span>管理</button>
+  <button data-tab="home" class="on" onclick="switchTab('home')"><span class="ic">⌂</span>ホーム</button>
+  <button data-tab="chat" onclick="switchTab('chat')"><span class="ic">❝</span>チャット</button>
+  <button data-tab="graph" onclick="switchTab('graph')"><span class="ic">◉</span>記憶</button>
+  <button data-tab="log" onclick="switchTab('log')"><span class="ic">≡</span>ログ</button>
+  <button data-tab="admin" onclick="switchTab('admin')"><span class="ic">⚙</span>管理</button>
 </nav>
 
 <script>
 const $ = s => document.querySelector(s);
-const token = () => localStorage.getItem('admin_token') || '';
-$('#adminToken').value = token();
-$('#adminToken').addEventListener('change', e => localStorage.setItem('admin_token', e.target.value));
+const store = {
+  get(k){ try { return localStorage.getItem(k) || ''; } catch(e){ return ''; } },
+  set(k,v){ try { localStorage.setItem(k, v); } catch(e){} }
+};
+const token = () => store.get('admin_token');
+try {
+  $('#adminToken').value = token();
+  $('#adminToken').addEventListener('change', e => store.set('admin_token', e.target.value));
+} catch(e){}
 const adminHeaders = () => ({'Content-Type':'application/json','X-Admin-Token': token()});
 
 function switchTab(name){
@@ -250,7 +256,7 @@ async function loadAdmin(){
     : '<p class="muted">なし</p>';
   const snaps = await (await fetch('/api/snapshots')).json();
   $('#snapList').innerHTML = snaps.length ? snaps.map(s =>
-    '<div class="rowflex" style="justify-content:space-between;border-bottom:1px solid var(--line);padding:6px 0"><span>'+s+'</span><button class="btn" onclick="restoreSnap(\''+s+'\')">この状態に戻す</button></div>').join('')
+    '<div class="rowflex" style="justify-content:space-between;border-bottom:1px solid var(--line);padding:6px 0"><span>'+s+'</span><button class="btn" onclick="restoreSnap(&quot;'+s+'&quot;)">この状態に戻す</button></div>').join('')
     : '<p class="muted">なし</p>';
 }
 async function decide(id, ok){
