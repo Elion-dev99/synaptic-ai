@@ -1,0 +1,14 @@
+name = "synaptic-ai"
+main = "dist/index.js"
+compatibility_date = "2026-08-01"
+
+# ストレージ: D1 を kv_store テーブル経由で使う（アダプタ層あり）。
+# database_id は作成した D1 の uuid に差し替える。
+[[d1_databases]]
+binding = "DB"
+database_name = "synaptic-ai"
+database_id = "bf70894a-282d-4f30-a6a3-3535222ee3f0"
+
+# 管理操作を保護する場合に設定（wrangler secret put ADMIN_TOKEN でも可）
+# [vars]
+# ADMIN_TOKEN = ""
